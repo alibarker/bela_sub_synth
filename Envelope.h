@@ -39,7 +39,7 @@ public:
 		sustain = s;
 		releaseInc = pow(exp(-1/r), 1/sampleRate);
 
-rt_printf("sampleRate: %f\t attackInc: %f\t, decayInc: %f\t, sustain: %f\t, releaseInc: %f\n", sampleRate, attackInc, decayInc, sustain, releaseInc);
+// rt_printf("sampleRate: %f\t attackInc: %f\t, decayInc: %f\t, sustain: %f\t, releaseInc: %f\n", sampleRate, attackInc, decayInc, sustain, releaseInc);
 
 	}
 
