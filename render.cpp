@@ -62,9 +62,10 @@ Subdivision sub;
 
 
 // pitch state variables
-int globalPitch = 60;
+int globalPitch = 48;
 int currentOctave = 0;
 int numOctaves = 0;
+int currentDirection = 1;
 
 enum
 {
@@ -81,6 +82,7 @@ int* chordNotes[4];
 // global state variables
 
 float Fs;
+int audioFramesPerAnalogFrame;
 
 // components
 BLITOscillator osc;
@@ -92,13 +94,11 @@ Envelope* filterEnv;
 void startNextNote()
 {
 	// find out pitch
-	beatCount++;
-	if (beatCount > numNotesInChord[currentChordType])
-		beatCount = 1;
 
 	int* currentChord = chordNotes[currentChordType];
-	int currentNote = currentChord[beatCount];
+	int currentNote = currentChord[beatCount - 1];
 	int pitchNumber = globalPitch + currentNote + 12 * currentOctave;
+
 
 	// set oscillator
 
@@ -110,7 +110,27 @@ void startNextNote()
 	env->startNote();
 	filterEnv->startNote();
 
-	rt_printf("Note: %d\t Pitch: %d\t Freq: %f\n", currentNote, pitchNumber, freq);
+
+	rt_printf("Beat: %d\tNote: %d\t Pitch: %d\t Freq: %f\n", beatCount, currentNote, pitchNumber, freq);
+
+
+	beatCount += currentDirection;
+	if (beatCount > numNotesInChord[currentChordType] || beatCount < 1)
+	{
+		beatCount = ((beatCount + numNotesInChord[currentChordType] - 1) % numNotesInChord[currentChordType]) + 1;
+
+		currentOctave += currentDirection;
+		if (currentOctave >= numOctaves ){
+			currentDirection = -1;
+		}
+		else if (currentOctave < 0)	{
+			currentDirection = 1;
+		}
+
+	}
+
+	
+
 
 }
 
@@ -143,10 +163,12 @@ bool setup(BeagleRTContext *context, void *userData)
 {
 		// scope.setup(context->audioSampleRate);
 
-	currentChordType = chordSingleNote;
+	currentChordType = chordMinor;
 
 	Fs = context->audioSampleRate;
 
+	audioFramesPerAnalogFrame = context->audioFrames / context->analogFrames;
+	rt_printf("audioFramesPerAnalogFrame: %d\n", audioFramesPerAnalogFrame);
 
 	osc.setFrequency(200, context->audioSampleRate, oscTypeSaw);
 
@@ -201,7 +223,7 @@ void render(BeagleRTContext *context, void *userData)
 		{
 
 			float beatsPerSample = map(analogReadFrame(context, n/2, tempoPin), 0, 0.85, 60, 180) / (60 * context->audioSampleRate);	
-			
+			numOctaves = (int) map(analogReadFrame(context, n/2, octavePin), 0, 0.85, 0, 6);
 			// incrememnt beat and trigger notes if required
 			beatPhase += beatsPerSample;
 
@@ -262,44 +284,56 @@ void render(BeagleRTContext *context, void *userData)
 			// get oscillator output
 			float out = osc.tick();
 
+			float attack, decay, freqIn, resIn, filterAttack, filterDecay;
+
 			// apply envelope
+			if(!(n % audioFramesPerAnalogFrame)) {
 
-			float attack = map(analogReadFrame(context, n/2, attackPin), 0, 0.85, 0.01, 0.5);
-			float decay = map(analogReadFrame(context, n/2, decayPin), 0, 0.85, 0.01, 0.5);
+				attack = map(analogReadFrame(context, n/2, attackPin), 0, 0.85, 0.01, 0.5);
+				decay = map(analogReadFrame(context, n/2, decayPin), 0, 0.85, 0.01, 0.5);
 
-			env->setParameters(attack, decay, 0, 0);
+				env->setParameters(attack, decay, 0, 0);
+
+
+
+				// Set Filter coefficients
+
+				filterAttack = map(analogReadFrame(context, n/2, filterAttackPin), 0, 0.85, 0.01, 0.5);
+				filterDecay = map(analogReadFrame(context, n/2, filterDecayPin), 0, 0.85, 0.01, 0.5);
+
+				filterEnv->setParameters(filterAttack, filterDecay, 0, 0);
+
+				// rt_printf("EnvAmp: %f\n", filterEnvAmp);
+
+
+				freqIn = map(analogReadFrame(context, n/2, filterCutoffPin), 0, 0.85, 20, 15000);
+				resIn = map(analogReadFrame(context, n/2, filterQPin), 0, 0.85, 0, 1.2);
+
+				freqIn = filterFreqSmoother->processSample(freqIn);
+				resIn = filterResSmoother->processSample(resIn);
+
+			}
 
 			float envAmp = env->tick();
-
-
-			// Set Filter coefficients
-
-			float filterAttack = map(analogReadFrame(context, n/2, filterAttackPin), 0, 0.85, 0.01, 0.5);
-			float filterDecay = map(analogReadFrame(context, n/2, filterDecayPin), 0, 0.85, 0.01, 0.5);
-
-			filterEnv->setParameters(filterAttack, filterDecay, 0, 0);
 			float filterEnvAmp = filterEnv->tick();
 
-			// rt_printf("EnvAmp: %f\n", filterEnvAmp);
-
-
-			float freqIn = map(analogReadFrame(context, n/2, filterCutoffPin), 0, 0.85, 20, 15000);
-			float resIn = map(analogReadFrame(context, n/2, filterQPin), 0, 0.85, 0, 1.2);
-
-			freqIn = filterFreqSmoother->processSample(freqIn);
-			resIn = filterResSmoother->processSample(resIn);
+			// freqIn = filterFreqSmoother->processSample(freqIn);
+			// resIn = filterResSmoother->processSample(resIn);
 
 			filter.setCoefficients(filterTypeLowPass, freqIn * (1 + filterEnvAmp), resIn, context->audioSampleRate);
+			// filter.setCoefficients(filterTypeLowPass, freqIn, resIn, context->audioSampleRate);
 
+			// rt_printf("Freq: \t%f, Res: \t%f, n: \t%d\n", freqIn * (1 + filterEnvAmp), resIn, n);
 
 			// apply filter
 			out = filter.processSample(out) * envAmp * 0.5;
+			// out = out * envAmp * 0.5;
 
 			// write to both channels
 			for(unsigned int channel = 0; channel < context->audioChannels; channel++) {
 				audioWriteFrame(context, n, channel, out);
 			}
-		 }
+		}
 	}
 }
 

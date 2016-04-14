@@ -25,7 +25,7 @@ public:
 		setParameters(0.1, 0.1, 0.8, 0.1);
 		currentAmplitude = 0.0;
 
-		rt_printf("Fs: %f\n", sampleRate);
+		// rt_printf("Fs: %f\n", sampleRate);
 	}
 	~Envelope(){}
 
@@ -46,12 +46,12 @@ public:
 	void startNote()
 	{
 		state = stateAttack;
-		rt_printf("Note on\n");
+		// rt_printf("Note on\n");
 	}
 	void releaseNote()
 	{
 		state = stateRelease;
-				rt_printf("Note off\n");
+				// rt_printf("Note off\n");
  
 	}
 
@@ -82,7 +82,7 @@ float Envelope::tick()
 			currentAmplitude += attackInc;
 			if (currentAmplitude >= 1){
 				state = stateDecay;
-				rt_printf("Decay\n");
+				// rt_printf("Decay\n");
 			}
 			break;
 
@@ -90,7 +90,7 @@ float Envelope::tick()
 			currentAmplitude *= decayInc;
 			if (currentAmplitude <= sustain){
 				state = stateSustain;
-				rt_printf("Sustain\n");
+				// rt_printf("Sustain\n");
 			}
 			break;
 
@@ -100,7 +100,7 @@ float Envelope::tick()
 			{
 				currentAmplitude = 0.0;
 				state = stateOff;
-				rt_printf("End\n");
+				// rt_printf("End\n");
 			}
 			break;
 

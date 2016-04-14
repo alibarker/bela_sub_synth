@@ -21,11 +21,11 @@
 
  	float processSample(float input)
  	{
- 		float output = input/filterOrder;
+ 		float output = input/((float) filterOrder);
 
  		for (int i = 0; i < filterOrder; ++i)
  		{
- 			output += prevSamples[ (writePointer - i + filterOrder)  ] / filterOrder;
+ 			output += prevSamples[ (writePointer - i + filterOrder) % filterOrder ] / filterOrder;
  		}
 
  		prevSamples[writePointer] = input;
