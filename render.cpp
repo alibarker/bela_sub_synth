@@ -11,10 +11,11 @@
 #include <Utilities.h>
 #include <Midi.h>
 #include "Synth.h"
-#include "Scope.h"
 #include "MoogLadderFilter.h"
 #include "Envelope.h"
 #include "SensorLowPass.h"
+#include <cstdlib>
+ #include <cstring>
 
 // Pin Numbers
 int octavePin = 0;
@@ -78,17 +79,24 @@ int numNotesInChord[4];
 int currentChordType;
 int* chordNotes[4];
 
+int numNotesHeld = 0;
+bool notesHeld[128];
+
 
 // global state variables
 
 float Fs;
 int audioFramesPerAnalogFrame;
+int midiPort = 0;
+enum {kVelocity, kNoteOn, kNoteNumber};
+
 
 // components
 BLITOscillator osc;
 MoogLadderFilter filter;
 Envelope* env;
 Envelope* filterEnv;
+Midi midi;
 
 
 void startNextNote()
@@ -128,10 +136,38 @@ void startNextNote()
 		}
 
 	}
+}
 
+float gFreq, gVelocity, gPhaseIncrement, gIsNoteOn;
+
+void midiMessageCallback(MidiChannelMessage message, void* arg){
 	
+	if(message.getType() == kmmNoteOn){
 
+		if (message.getDataByte(1) > 0)
+		{
+			notesHeld[message.getDataByte(0)] = true;
+			notesHeld++;
+		} else
+		{
+			notesHeld[message.getDataByte(0)] = false;
+			notesHeld--;
+		}
 
+	if(arg != NULL){
+			for (int i = 0; i < 128; ++i)
+			{
+				rt_printf("%d ", notesHeld[i]);
+			}
+			rt_printf("\n");
+	}
+
+		// gFreq = powf(2, (message.getDataByte(0)-69)/12.0f) * 440;
+		// gVelocity = message.getDataByte(1);
+		// gPhaseIncrement = 2 * M_PI * gFreq / Fs;
+		// gIsNoteOn = gVelocity > 0;
+		// rt_printf("v0:%f, ph: %6.5f, gVelocity: %d\n", gFreq, gPhaseIncrement, gVelocity);
+	}
 }
 
 void initChords()
@@ -161,7 +197,22 @@ void initChords()
 
 bool setup(BeagleRTContext *context, void *userData)
 {
-		// scope.setup(context->audioSampleRate);
+
+	// MIDI
+
+	midi.readFrom(midiPort);
+	midi.writeTo(midiPort);
+	midi.enableParser(true);
+	midi.setParserCallback(midiMessageCallback, &midiPort);
+	if(context->analogFrames == 0) {
+		rt_printf("Error: this example needs the analog I/O to be enabled\n");
+		return false;
+	}
+
+	for (int i = 0; i < 128; ++i)
+	{
+		notesHeld[i] = false;
+	}
 
 	currentChordType = chordMinor;
 
