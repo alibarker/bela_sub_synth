@@ -135,12 +135,20 @@ void startNextNote()
 
 			beatCount = ((beatCount + notes.size() - 1) % notes.size()) + 1;
 
-			currentOctave += currentDirection;
-			if (currentOctave >= numOctaves ){
-				currentDirection = -1;
-			}
-			else if (currentOctave < 0)	{
-				currentDirection = 1;
+			if (numOctaves > 0)
+			{
+				currentOctave += currentDirection;
+				if (currentOctave > numOctaves)
+				{
+					currentOctave = numOctaves;
+					currentDirection = -1;
+				} else if (currentOctave < 0)
+				{
+					currentOctave = 0;
+					currentDirection = + 1;
+				}
+			} else {
+				currentOctave = 0;
 			}
 
 		}
