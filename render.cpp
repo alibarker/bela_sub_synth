@@ -16,6 +16,7 @@
 #include "SensorLowPass.h"
 #include <cstdlib>
  #include <cstring>
+ #include <vector>
 
 // Pin Numbers
 int octavePin = 0;
@@ -81,6 +82,7 @@ int* chordNotes[4];
 
 int numNotesHeld = 0;
 bool notesHeld[128];
+std::vector<int> notes;
 
 
 // global state variables
@@ -102,39 +104,46 @@ Midi midi;
 void startNextNote()
 {
 	// find out pitch
-
-	int* currentChord = chordNotes[currentChordType];
-	int currentNote = currentChord[beatCount - 1];
-	int pitchNumber = globalPitch + currentNote + 12 * currentOctave;
-
-
-	// set oscillator
-
-	float freq = 440 * pow(2, (pitchNumber - 69)/12.0);
-
-	osc.setFrequency(freq, Fs, oscTypeSaw);
-
-	// trigger envelope
-	env->startNote();
-	filterEnv->startNote();
-
-
-	rt_printf("Beat: %d\tNote: %d\t Pitch: %d\t Freq: %f\n", beatCount, currentNote, pitchNumber, freq);
-
-
-	beatCount += currentDirection;
-	if (beatCount > numNotesInChord[currentChordType] || beatCount < 1)
+	if (notes.size() > 0)
 	{
-		beatCount = ((beatCount + numNotesInChord[currentChordType] - 1) % numNotesInChord[currentChordType]) + 1;
+		beatCount = ((beatCount + notes.size() - 1) % notes.size()) + 1;
+      	std::vector<int>::iterator iter = notes.begin() + beatCount - 1;
 
-		currentOctave += currentDirection;
-		if (currentOctave >= numOctaves ){
-			currentDirection = -1;
-		}
-		else if (currentOctave < 0)	{
-			currentDirection = 1;
-		}
+		int currentNote = *iter;
 
+		rt_printf("currentNote: %d\n",  currentNote);
+
+		int pitchNumber = currentNote + 12 * currentOctave;
+
+
+		// set oscillator
+
+		float freq = 440 * pow(2, (pitchNumber - 69)/12.0);
+
+		osc.setFrequency(freq, Fs, oscTypeSaw);
+
+		// trigger envelope
+		env->startNote();
+		filterEnv->startNote();
+
+
+		rt_printf("Beat: %d\tOctave: %d\tNote: %d\t Pitch: %d\t Freq: %f\n", beatCount, currentOctave, currentNote, pitchNumber, freq);
+
+		beatCount += currentDirection;
+		if (beatCount > notes.size() || beatCount < 1)
+		{
+
+			beatCount = ((beatCount + notes.size() - 1) % notes.size()) + 1;
+
+			currentOctave += currentDirection;
+			if (currentOctave >= numOctaves ){
+				currentDirection = -1;
+			}
+			else if (currentOctave < 0)	{
+				currentDirection = 1;
+			}
+
+		}
 	}
 }
 
@@ -147,17 +156,29 @@ void midiMessageCallback(MidiChannelMessage message, void* arg){
 		if (message.getDataByte(1) > 0)
 		{
 			notesHeld[message.getDataByte(0)] = true;
-			notesHeld++;
+			numNotesHeld++;
+
+			notes.push_back(message.getDataByte(0));
+
 		} else
 		{
-			notesHeld[message.getDataByte(0)] = false;
-			notesHeld--;
+			for (std::vector<int>::iterator i = notes.begin(); i != notes.end(); ++i)
+			{
+
+				// rt_printf("Note: %d, incoming note: %d\n", *i, message.getDataByte(0));
+
+				if (*i == message.getDataByte(0))
+				{
+					notes.erase(i);
+					break;
+				}
+			}
 		}
 
 	if(arg != NULL){
-			for (int i = 0; i < 128; ++i)
+			for (std::vector<int>::iterator i = notes.begin(); i != notes.end(); ++i)
 			{
-				rt_printf("%d ", notesHeld[i]);
+				rt_printf("%d ", *i);
 			}
 			rt_printf("\n");
 	}
@@ -259,7 +280,7 @@ void render(BeagleRTContext *context, void *userData)
 			isRunning = true;
 			beatPhase = 1.0;
 			beatCount = 1;
-			rt_printf("Start\n");
+			printf("Start\n");
 		}
 		startButtonPrevState = startButtonState;
 
@@ -272,7 +293,6 @@ void render(BeagleRTContext *context, void *userData)
 
 		if  (isRunning)
 		{
-
 			float beatsPerSample = map(analogReadFrame(context, n/2, tempoPin), 0, 0.85, 60, 180) / (60 * context->audioSampleRate);	
 			numOctaves = (int) map(analogReadFrame(context, n/2, octavePin), 0, 0.85, 0, 6);
 			// incrememnt beat and trigger notes if required
