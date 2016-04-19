@@ -57,10 +57,6 @@ void MoogLadderFilter::setCoefficients(int filterType, float cutoff, float r, fl
 
 	resonance = r;
 	Gcomp = 0.5;
-
-	 
-// rt_printf("g: %f\t h0: %f\t, h1 %f\t, resonance: %f\n", g, h0, h1, resonance);	 
-
 }
 
 float MoogLadderFilter::antiImageFilter(float in) {

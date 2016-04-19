@@ -17,6 +17,7 @@
 #include <cstdlib>
  #include <cstring>
  #include <vector>
+ #include "UdpClient.h"
 
 // Pin Numbers
 int octavePin = 0;
@@ -289,6 +290,7 @@ void render(BeagleRTContext *context, void *userData)
 			beatPhase = 1.0;
 			beatCount = 1;
 			printf("Start\n");
+
 		}
 		startButtonPrevState = startButtonState;
 
@@ -360,59 +362,60 @@ void render(BeagleRTContext *context, void *userData)
 				}
 			}
 
-			// get oscillator output
-			float out = osc.tick();
-
-			float attack, decay, freqIn, resIn, filterAttack, filterDecay;
-
-			// apply envelope
-			if(!(n % audioFramesPerAnalogFrame)) {
-
-				attack = map(analogReadFrame(context, n/2, attackPin), 0, 0.85, 0.01, 0.5);
-				decay = map(analogReadFrame(context, n/2, decayPin), 0, 0.85, 0.01, 0.5);
-
-				env->setParameters(attack, decay, 0, 0);
-
-
-
-				// Set Filter coefficients
-
-				filterAttack = map(analogReadFrame(context, n/2, filterAttackPin), 0, 0.85, 0.01, 0.5);
-				filterDecay = map(analogReadFrame(context, n/2, filterDecayPin), 0, 0.85, 0.01, 0.5);
-
-				filterEnv->setParameters(filterAttack, filterDecay, 0, 0);
-
-				// rt_printf("EnvAmp: %f\n", filterEnvAmp);
-
-
-				freqIn = map(analogReadFrame(context, n/2, filterCutoffPin), 0, 0.85, 20, 15000);
-				resIn = map(analogReadFrame(context, n/2, filterQPin), 0, 0.85, 0, 1.2);
-
-				freqIn = filterFreqSmoother->processSample(freqIn);
-				resIn = filterResSmoother->processSample(resIn);
-
-			}
-
-			float envAmp = env->tick();
-			float filterEnvAmp = filterEnv->tick();
-
-			// freqIn = filterFreqSmoother->processSample(freqIn);
-			// resIn = filterResSmoother->processSample(resIn);
-
-			filter.setCoefficients(filterTypeLowPass, freqIn * (1 + filterEnvAmp), resIn, context->audioSampleRate);
-			// filter.setCoefficients(filterTypeLowPass, freqIn, resIn, context->audioSampleRate);
-
-			// rt_printf("Freq: \t%f, Res: \t%f, n: \t%d\n", freqIn * (1 + filterEnvAmp), resIn, n);
-
-			// apply filter
-			out = filter.processSample(out) * envAmp * 0.5;
-			// out = out * envAmp * 0.5;
-
-			// write to both channels
-			for(unsigned int channel = 0; channel < context->audioChannels; channel++) {
-				audioWriteFrame(context, n, channel, out);
-			}
 		}
+		// get oscillator output
+		float out = osc.tick();
+
+		float attack, decay, freqIn, resIn, filterAttack, filterDecay;
+
+		// apply envelope
+		if(!(n % audioFramesPerAnalogFrame)) {
+
+			attack = map(analogReadFrame(context, n/2, attackPin), 0, 0.85, 0.01, 0.5);
+			decay = map(analogReadFrame(context, n/2, decayPin), 0, 0.85, 0.01, 0.5);
+
+			env->setParameters(attack, decay, 0, 0);
+
+
+
+			// Set Filter coefficients
+
+			filterAttack = map(analogReadFrame(context, n/2, filterAttackPin), 0, 0.85, 0.01, 0.5);
+			filterDecay = map(analogReadFrame(context, n/2, filterDecayPin), 0, 0.85, 0.01, 0.5);
+
+			filterEnv->setParameters(filterAttack, filterDecay, 0, 0);
+
+			// rt_printf("EnvAmp: %f\n", filterEnvAmp);
+
+
+			freqIn = map(analogReadFrame(context, n/2, filterCutoffPin), 0, 0.85, 20, 15000);
+			resIn = map(analogReadFrame(context, n/2, filterQPin), 0, 0.85, 0, 1.2);
+
+			freqIn = filterFreqSmoother->processSample(freqIn);
+			resIn = filterResSmoother->processSample(resIn);
+
+		}
+
+		float envAmp = env->tick();
+		float filterEnvAmp = filterEnv->tick();
+
+		// freqIn = filterFreqSmoother->processSample(freqIn);
+		// resIn = filterResSmoother->processSample(resIn);
+
+		filter.setCoefficients(filterTypeLowPass, freqIn /** (1 + filterEnvAmp)*/, resIn, context->audioSampleRate);
+		// filter.setCoefficients(filterTypeLowPass, freqIn, resIn, context->audioSampleRate);
+
+		// rt_printf("Freq: \t%f, Res: \t%f, n: \t%d\n", freqIn * (1 + filterEnvAmp), resIn, n);
+
+		// apply filter
+		out = filter.processSample(out) * envAmp * 0.5;
+		// out = out * envAmp * 0.5;
+
+		// write to both channels
+		for(unsigned int channel = 0; channel < context->audioChannels; channel++) {
+			audioWriteFrame(context, n, channel, out);
+		}
+	
 	}
 }
 
