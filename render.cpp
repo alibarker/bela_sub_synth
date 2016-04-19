@@ -29,9 +29,10 @@ int filterDecayPin = 5;
 int filterCutoffPin = 6;
 int filterQPin = 7;
 
+int holdPin = P9_16;
 int startButton = P9_12;
 int stopButton = P9_14;
-int ledPin = P9_16;
+int ledPin = P8_09;
 
 // I/O state variables
 int ledOnCount;
@@ -41,6 +42,9 @@ float prevResIn;
 int startButtonPrevState = 1;
 int stopButtonPrevState = 1;
 float prevFilterAttacks[4];
+int holdButtonPrevState = 1;
+
+int holdModeOn = 0;
 
 // input filters
 
@@ -169,12 +173,10 @@ void midiMessageCallback(MidiChannelMessage message, void* arg){
 
 			notes.push_back(message.getDataByte(0));
 
-		} else
+		} else if(message.getDataByte(1) == 0 && holdModeOn == 0)
 		{
 			for (std::vector<int>::iterator i = notes.begin(); i != notes.end(); ++i)
 			{
-
-				// rt_printf("Note: %d, incoming note: %d\n", *i, message.getDataByte(0));
 
 				if (*i == message.getDataByte(0))
 				{
@@ -262,6 +264,7 @@ bool setup(BeagleRTContext *context, void *userData)
 
 	pinModeFrame(context, 0, startButton, INPUT);
 	pinModeFrame(context, 0, stopButton, INPUT);
+	pinModeFrame(context, 0, holdPin, INPUT);
 
 	pinModeFrame(context, 0, ledPin, OUTPUT);
 
@@ -274,6 +277,11 @@ bool setup(BeagleRTContext *context, void *userData)
 	return true;
 }
 
+void clearNotes()
+{
+
+}
+
 
 void render(BeagleRTContext *context, void *userData)
 {
@@ -283,7 +291,8 @@ void render(BeagleRTContext *context, void *userData)
 
 		int startButtonState = digitalReadFrame(context, n, startButton);
 		int stopButtonState = digitalReadFrame(context, n, stopButton);
-		
+		int holdButtonState = digitalReadFrame(context, n, holdPin);
+
 		if (startButtonState == 0 && startButtonPrevState == 1)
 		{
 			isRunning = true;
@@ -300,6 +309,23 @@ void render(BeagleRTContext *context, void *userData)
 			rt_printf("Stop\n");
 		}
 		stopButtonPrevState = stopButtonState;
+
+		if (holdButtonState == 0 && holdButtonPrevState == 1)
+		{
+			if (holdModeOn == 0)
+			 {
+			 	holdModeOn = 1;
+			 } else if (holdModeOn == 1)
+			 { 
+			 	holdModeOn = 0;
+			 	notes.clear();
+			 }
+			rt_printf("Hold state: %d\n", holdModeOn);
+		}
+
+		holdButtonPrevState = holdButtonState;
+
+		digitalWriteFrame(context, n, ledPin, holdModeOn);
 
 		if  (isRunning)
 		{

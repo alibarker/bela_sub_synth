@@ -71,10 +71,10 @@ void MoogLadderFilter::setCoefficients(int filterType, float cutoff, float r, fl
 {
 
 	if (cutoff >= 15000)
-		cutoff == 15000;
+		cutoff = 15000;
 
 	if (r >= 1)
-		r == 1;
+		r = 1;
 
 	float sampleRate2 = sampleRate * 2;
 	g = 2 * M_PI * cutoff / sampleRate2;
