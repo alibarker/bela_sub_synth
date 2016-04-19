@@ -17,7 +17,7 @@
 #include <cstdlib>
  #include <cstring>
  #include <vector>
- #include "UdpClient.h"
+#include <algorithm>
 
 // Pin Numbers
 int octavePin = 0;
@@ -168,11 +168,10 @@ void midiMessageCallback(MidiChannelMessage message, void* arg){
 
 		if (message.getDataByte(1) > 0)
 		{
-			notesHeld[message.getDataByte(0)] = true;
-			numNotesHeld++;
-
-			notes.push_back(message.getDataByte(0));
-
+			if (std::count(notes.begin(), notes.end(), message.getDataByte(0)) == 0)
+			{
+				notes.push_back(message.getDataByte(0));
+			} 
 		} else if(message.getDataByte(1) == 0 && holdModeOn == 0)
 		{
 			for (std::vector<int>::iterator i = notes.begin(); i != notes.end(); ++i)
