@@ -8,8 +8,6 @@
  #include <cmath>
 #include <BeagleRT.h>
 
- #define FREQ_LIMIT 18000
-
 enum FilterType {
     filterTypeLowPass = 0,
     filterTypeHighPass
@@ -18,12 +16,7 @@ enum FilterType {
 class MoogLadderFilter
 {
 public:
-	MoogLadderFilter() {
-		for (int i = 0; i < 5; i++)
-		{
-			state[i] = prevState[i] = 0.0;
-		}
-	}
+	MoogLadderFilter();
 	~MoogLadderFilter() {}
 
     void setCoefficients(int filterType, float cutoff, float resonance, float sampleRate);

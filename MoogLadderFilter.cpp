@@ -7,17 +7,43 @@
 
 #include "MoogLadderFilter.h"
 
- float MoogLadderFilter::processSample(float in)
- {
 
- 	float in2[2] = {in, 0.0};
- 	float out[2] = {0.0, 0.0};
+MoogLadderFilter::MoogLadderFilter()
+{
+
+	for (int i = 0; i < 5; i++)
+	{
+		state[i] = prevState[i] = 0.0;
+	}
+
+// oversampling filter cofficients, from MATLAB
+
+resamplingCoefficients[0] = 0.00506031712484500;
+resamplingCoefficients[1] = -3.25061549073449e-18;
+resamplingCoefficients[2] = -0.0419428794313447;
+resamplingCoefficients[3] = 1.32104344910468e-17;
+resamplingCoefficients[4] = 0.288484826302638;
+resamplingCoefficients[5] = 0.496795472007725;
+resamplingCoefficients[6] = 0.288484826302638;
+resamplingCoefficients[7] = 1.32104344910468e-17;
+resamplingCoefficients[8] = -0.0419428794313447;
+resamplingCoefficients[9] = -3.25061549073449e-18;
+resamplingCoefficients[10] = 0.00506031712484485;
+
+}
+
+
+float MoogLadderFilter::processSample(float in)
+{
+
+	float in2[2] = {in, 0.0};
+	float out[2] = {0.0, 0.0};
 
 	antiImageFilter(in2[0]);
 	antiImageFilter(in2[1]);
 
- 	for (int i = 0; i < 2; ++i)
- 	{
+	for (int i = 0; i < 2; ++i)
+	{
 	 	float u = in2[i] - 4 * resonance * (prevState[4] - Gcomp*in2[i]);
 
 	 	state[0] = tanh (u);
@@ -29,26 +55,26 @@
 	 	out[i] = state[4];
 
 	 	for (int i = 0; i < 5; i++)
-	 		{
-	 			prevState[i] = state[i];
-	 		}
+		{
+			prevState[i] = state[i];
+		}	
 	}
 
-	antiAliasFilter(out[0]);
-	antiAliasFilter(out[1]);
+antiAliasFilter(out[0]);
+antiAliasFilter(out[1]);
 
- 	return out[0];
+	return out[0];
 
- }
+}
 
 void MoogLadderFilter::setCoefficients(int filterType, float cutoff, float r, float sampleRate)
 {
 
-	if (cutoff >= FREQ_LIMIT)
-	{
-		cutoff = FREQ_LIMIT;
-	}
+	if (cutoff >= 15000)
+		cutoff == 15000;
 
+	if (r >= 1)
+		r == 1;
 
 	float sampleRate2 = sampleRate * 2;
 	g = 2 * M_PI * cutoff / sampleRate2;

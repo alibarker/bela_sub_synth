@@ -368,6 +368,8 @@ void render(BeagleRTContext *context, void *userData)
 
 		float attack, decay, freqIn, resIn, filterAttack, filterDecay;
 
+
+
 		// apply envelope
 		if(!(n % audioFramesPerAnalogFrame)) {
 
@@ -388,21 +390,27 @@ void render(BeagleRTContext *context, void *userData)
 			// rt_printf("EnvAmp: %f\n", filterEnvAmp);
 
 
-			freqIn = map(analogReadFrame(context, n/2, filterCutoffPin), 0, 0.85, 20, 15000);
-			resIn = map(analogReadFrame(context, n/2, filterQPin), 0, 0.85, 0, 1.2);
+			freqIn = map(analogReadFrame(context, n/2, filterCutoffPin), 0, 1, 20, 15000);
+			resIn = map(analogReadFrame(context, n/2, filterQPin), 0, 1, 0, 1);
 
 			freqIn = filterFreqSmoother->processSample(freqIn);
 			resIn = filterResSmoother->processSample(resIn);
 
 		}
-
 		float envAmp = env->tick();
 		float filterEnvAmp = filterEnv->tick();
+			
+		if (freqIn!=prevFreqIn || resIn != prevResIn)
+		{
+			filter.setCoefficients(filterTypeLowPass, freqIn  * (1 + filterEnvAmp), resIn, context->audioSampleRate);
+		}
+		prevFreqIn = freqIn; prevResIn = resIn;
+
+
 
 		// freqIn = filterFreqSmoother->processSample(freqIn);
 		// resIn = filterResSmoother->processSample(resIn);
 
-		filter.setCoefficients(filterTypeLowPass, freqIn /** (1 + filterEnvAmp)*/, resIn, context->audioSampleRate);
 		// filter.setCoefficients(filterTypeLowPass, freqIn, resIn, context->audioSampleRate);
 
 		// rt_printf("Freq: \t%f, Res: \t%f, n: \t%d\n", freqIn * (1 + filterEnvAmp), resIn, n);
