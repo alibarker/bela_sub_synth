@@ -252,8 +252,6 @@ bool setup(BeagleRTContext *context, void *userData)
 	audioFramesPerAnalogFrame = context->audioFrames / context->analogFrames;
 	rt_printf("audioFramesPerAnalogFrame: %d\n", audioFramesPerAnalogFrame);
 
-	osc.setFrequency(200, context->audioSampleRate, oscTypeSaw);
-
 	env = new Envelope(context->audioSampleRate);
 	filterEnv = new Envelope(context->audioSampleRate);
 	filterFreqSmoother = new SensorLowPass(4);
@@ -268,7 +266,7 @@ bool setup(BeagleRTContext *context, void *userData)
 	pinModeFrame(context, 0, ledPin, OUTPUT);
 
 	swingPercent = 0.6;
-	sub = subDivisionSemiquavers;
+	sub = subDivisionQuavers;
 
 	initChords();
 
@@ -319,7 +317,6 @@ void render(BeagleRTContext *context, void *userData)
 			 	holdModeOn = 0;
 			 	notes.clear();
 			 }
-			rt_printf("Hold state: %d\n", holdModeOn);
 		}
 
 		holdButtonPrevState = holdButtonState;
@@ -328,7 +325,8 @@ void render(BeagleRTContext *context, void *userData)
 
 		if  (isRunning)
 		{
-			float beatsPerSample = map(analogReadFrame(context, n/2, tempoPin), 0, 0.85, 60, 180) / (60 * context->audioSampleRate);	
+			float beatsPerSample = map(analogReadFrame(context, n/2, tempoPin), 0, 0.83, 60, 240) / (60 * context->audioSampleRate);
+
 			numOctaves = (int) map(analogReadFrame(context, n/2, octavePin), 0, 0.85, 0, 6);
 			// incrememnt beat and trigger notes if required
 			beatPhase += beatsPerSample;
@@ -389,7 +387,7 @@ void render(BeagleRTContext *context, void *userData)
 
 		}
 		// get oscillator output
-		float out = osc.tick();
+		float out = osc.tick() * 0.5;
 
 		float attack, decay, freqIn, resIn, filterAttack, filterDecay;
 
@@ -441,8 +439,8 @@ void render(BeagleRTContext *context, void *userData)
 		// rt_printf("Freq: \t%f, Res: \t%f, n: \t%d\n", freqIn * (1 + filterEnvAmp), resIn, n);
 
 		// apply filter
-		out = filter.processSample(out) * envAmp * 0.5;
-		// out = out * envAmp * 0.5;
+		out = filter.processSample(out);
+		out = out * envAmp * 0.5;
 
 		// write to both channels
 		for(unsigned int channel = 0; channel < context->audioChannels; channel++) {
